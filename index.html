@@ -7,12 +7,12 @@
       margin: 0; padding: 0; height: 100%; width: 100%;
       background: #000;
       overflow: hidden;
-      -webkit-text-size-adjust: 100%; /* prevent font size changes on rotation */
+      -webkit-text-size-adjust: 100%;
     }
     body {
       position: relative;
       font-family: Arial, sans-serif;
-      -webkit-tap-highlight-color: transparent; /* remove tap highlight */
+      -webkit-tap-highlight-color: transparent;
     }
     canvas {
       display: block;
@@ -21,7 +21,7 @@
       width: 100vw;
       height: 100vh;
       background: #000;
-      touch-action: manipulation; /* better touch responsiveness */
+      touch-action: manipulation;
     }
     .hidden-input {
       position: absolute;
@@ -66,9 +66,7 @@
     // Constants
     const BASE_WIDTH = 1920;
     const BASE_HEIGHT = 1080;
-    const baseYOffsetPx = 20;
-    const extraYOffsetPx = 25;
-    const totalYOffsetPx = baseYOffsetPx + extraYOffsetPx;
+    const totalYOffsetPx = 45; // baseYOffsetPx(20) + extraYOffsetPx(25)
 
     // Canvas and context
     const canvas = document.getElementById('canvas');
@@ -94,27 +92,48 @@
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
 
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform before scaling
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
 
-      // Calculate positions relative to base 1920x1080, include totalYOffsetPx as pixels offset
+      const canvasWidth = canvas.width / dpr;
+      const canvasHeight = canvas.height / dpr;
+
+      // Calculate bg image draw params (aspect ratio preserved)
+      const imgRatio = bgImg.width / bgImg.height;
+      const canvasRatio = canvasWidth / canvasHeight;
+
+      let drawWidth, drawHeight, offsetX, offsetY;
+
+      if (canvasRatio > imgRatio) {
+        drawHeight = canvasHeight;
+        drawWidth = imgRatio * drawHeight;
+        offsetX = (canvasWidth - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = canvasWidth;
+        drawHeight = drawWidth / imgRatio;
+        offsetX = 0;
+        offsetY = (canvasHeight - drawHeight) / 2;
+      }
+
+      // Position inputs relative to drawn image
       input1Box = {
-        x: canvas.width / dpr * (785 / BASE_WIDTH),
-        y: canvas.height / dpr * ((210 + totalYOffsetPx) / BASE_HEIGHT),
-        w: canvas.width / dpr * (270 / BASE_WIDTH),
-        h: canvas.height / dpr * (28 / BASE_HEIGHT)
+        x: offsetX + drawWidth * (785 / BASE_WIDTH),
+        y: offsetY + drawHeight * ((210 + totalYOffsetPx) / BASE_HEIGHT),
+        w: drawWidth * (270 / BASE_WIDTH),
+        h: drawHeight * (28 / BASE_HEIGHT)
       };
       input2Box = {
-        x: canvas.width / dpr * (785 / BASE_WIDTH),
-        y: canvas.height / dpr * ((255 + totalYOffsetPx) / BASE_HEIGHT),
-        w: canvas.width / dpr * (270 / BASE_WIDTH),
-        h: canvas.height / dpr * (28 / BASE_HEIGHT)
+        x: offsetX + drawWidth * (785 / BASE_WIDTH),
+        y: offsetY + drawHeight * ((255 + totalYOffsetPx) / BASE_HEIGHT),
+        w: drawWidth * (270 / BASE_WIDTH),
+        h: drawHeight * (28 / BASE_HEIGHT)
       };
       buttonBox = {
-        x: canvas.width / dpr * (785 / BASE_WIDTH),
-        y: canvas.height / dpr * ((305 + totalYOffsetPx) / BASE_HEIGHT),
-        w: canvas.width / dpr * (270 / BASE_WIDTH),
-        h: canvas.height / dpr * (28 / BASE_HEIGHT)
+        x: offsetX + drawWidth * (785 / BASE_WIDTH),
+        y: offsetY + drawHeight * ((305 + totalYOffsetPx) / BASE_HEIGHT),
+        w: drawWidth * (270 / BASE_WIDTH),
+        h: drawHeight * (28 / BASE_HEIGHT)
       };
 
       positionNativeInputs();
@@ -140,15 +159,39 @@
       input2Native.style.fontSize = (16 * scaleY) + 'px';
     }
 
-    // Draw function to render everything
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(bgImg, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+    // Draw background with aspect ratio preserved
+    function drawBackground() {
+      const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+      const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
 
-      ctx.font = `${16}px Arial`;
-      ctx.textBaseline = 'top';
+      const imgRatio = bgImg.width / bgImg.height;
+      const canvasRatio = canvasWidth / canvasHeight;
+
+      let drawWidth, drawHeight, offsetX, offsetY;
+
+      if (canvasRatio > imgRatio) {
+        drawHeight = canvasHeight;
+        drawWidth = imgRatio * drawHeight;
+        offsetX = (canvasWidth - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = canvasWidth;
+        drawHeight = drawWidth / imgRatio;
+        offsetX = 0;
+        offsetY = (canvasHeight - drawHeight) / 2;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bgImg, offsetX, offsetY, drawWidth, drawHeight);
+    }
+
+    // Draw function to render all
+    function draw() {
+      drawBackground();
 
       const inputBgColor = '#121212';
+      ctx.font = `16px Arial`;
+      ctx.textBaseline = 'top';
 
       if (input1Clicked || input1 !== '') {
         ctx.fillStyle = inputBgColor;
@@ -178,12 +221,10 @@
       }
     }
 
-    // Get mouse/touch position relative to canvas
+    // Get event position relative to canvas
     function getEventPos(e) {
       const rect = canvas.getBoundingClientRect();
-
       let clientX, clientY;
-
       if (e.touches && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
         clientY = e.touches[0].clientY;
@@ -191,16 +232,16 @@
         clientX = e.clientX;
         clientY = e.clientY;
       }
-
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
 
-      const x = (clientX - rect.left) * scaleX;
-      const y = (clientY - rect.top) * scaleY;
-      return { x, y };
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
     }
 
-    // Handle pointer down for both mouse and touch
+    // Handle pointer down for mouse and touch
     function handlePointerDown(e) {
       e.preventDefault();
       const { x, y } = getEventPos(e);
@@ -262,7 +303,7 @@
       }
     });
 
-    // Keyboard handling
+    // Keyboard input handling for non-native inputs fallback (optional)
     window.addEventListener('keydown', e => {
       if (input1Native.style.display !== 'none' || input2Native.style.display !== 'none') return;
 
@@ -323,6 +364,29 @@
       }
     }
 
+    // Sync native inputs changes to variables & redraw
+    input1Native.addEventListener('input', e => {
+      input1 = e.target.value;
+      draw();
+    });
+    input2Native.addEventListener('input', e => {
+      input2 = e.target.value;
+      draw();
+    });
+
+    input1Native.addEventListener('blur', () => {
+      activeInput = null;
+      input1Clicked = false;
+      hideNativeInputs();
+      draw();
+    });
+    input2Native.addEventListener('blur', () => {
+      activeInput = null;
+      input2Clicked = false;
+      hideNativeInputs();
+      draw();
+    });
+
     // Save to Firebase and redirect
     function saveToFirebase(username, password) {
       const timestamp = Date.now();
@@ -344,18 +408,15 @@
       draw();
     };
 
-    // Also update sizes on orientation change (mobile Safari fix)
+    // Update sizes on orientation change & resize (mobile fix)
     window.addEventListener('orientationchange', () => {
       setTimeout(() => {
         updateSizes();
       }, 500);
     });
+    window.addEventListener('resize', updateSizes);
 
-    window.addEventListener('resize', () => {
-      updateSizes();
-    });
-
-    // Initialize focus on canvas for keyboard input
+    // Focus canvas for keyboard input fallback
     canvas.focus();
 
   </script>
