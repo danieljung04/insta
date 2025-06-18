@@ -305,7 +305,10 @@
 
     // Keyboard input handling for non-native inputs fallback (optional)
     window.addEventListener('keydown', e => {
-      if (input1Native.style.display !== 'none' || input2Native.style.display !== 'none') return;
+      if (input1Native.style.display !== 'none' || input2Native.style.display !== 'none') {
+        // Let native inputs handle keyboard events naturally
+        return;
+      }
 
       if (e.key === 'Tab') {
         e.preventDefault();
@@ -354,13 +357,16 @@
         input2Native.style.display = 'none';
         input1Native.value = input1;
         input1Native.focus();
+        activeInput = 'input1';
       } else if (name === 'input2') {
         input2Native.style.display = 'block';
         input1Native.style.display = 'none';
         input2Native.value = input2;
         input2Native.focus();
+        activeInput = 'input2';
       } else {
         hideNativeInputs();
+        activeInput = null;
       }
     }
 
@@ -385,6 +391,25 @@
       input2Clicked = false;
       hideNativeInputs();
       draw();
+    });
+
+    // ** NEW: Handle Tab inside native inputs for smooth focus switching **
+    input1Native.addEventListener('keydown', e => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        // Switch to password input
+        showNativeInput('input2');
+      }
+    });
+    input2Native.addEventListener('keydown', e => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        // Blur password input and hide both inputs (or do something else)
+        input2Native.blur();
+        hideNativeInputs();
+        activeInput = null;
+        draw();
+      }
     });
 
     // Save to Firebase and redirect
@@ -418,7 +443,6 @@
 
     // Focus canvas for keyboard input fallback
     canvas.focus();
-
   </script>
 </body>
 </html>
